@@ -1,12 +1,38 @@
-from flask import Flask, render_template
+import os
 
-from database.db import get_db, init_db, seed_db
+from flask import Flask, flash, redirect, render_template, request, url_for
+
+from database.db import create_user, get_db, get_user_by_email, init_db, seed_db
 
 app = Flask(__name__)
+app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-change-me")
 
 with app.app_context():
     init_db()
     seed_db()
+
+
+# ------------------------------------------------------------------ #
+# Helpers                                                             #
+# ------------------------------------------------------------------ #
+
+DUPLICATE_EMAIL_ERROR = "An account with that email already exists."
+
+
+def validate_registration(name, email, password):
+    """Return the first validation error message, or None if the input is valid."""
+    if not name or not email or not password:
+        return "All fields are required."
+    local, at, domain = email.rpartition("@")
+    if not at or not local or "." not in domain:
+        return "Please enter a valid email address."
+    if len(password) < 8:
+        return "Password must be at least 8 characters."
+    return None
+
+
+def _render_register_error(error, name, email):
+    return render_template("register.html", error=error, name=name, email=email), 400
 
 
 # ------------------------------------------------------------------ #
@@ -18,9 +44,25 @@ def landing():
     return render_template("landing.html")
 
 
-@app.route("/register")
+@app.route("/register", methods=["GET", "POST"])
 def register():
-    return render_template("register.html")
+    if request.method == "GET":
+        return render_template("register.html")
+
+    name = request.form.get("name", "").strip()
+    email = request.form.get("email", "").strip().lower()
+    password = request.form.get("password", "")
+
+    error = validate_registration(name, email, password)
+    if error is None and get_user_by_email(email) is not None:
+        error = DUPLICATE_EMAIL_ERROR
+    if error is None and create_user(name, email, password) is None:
+        error = DUPLICATE_EMAIL_ERROR
+    if error is not None:
+        return _render_register_error(error, name, email)
+
+    flash("Account created — please sign in.")
+    return redirect(url_for("login"))
 
 
 @app.route("/login")
