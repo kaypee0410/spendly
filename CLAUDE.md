@@ -70,10 +70,11 @@ pytest -s
 ## Implemented vs stub routes
 Route	                          Status
 GET /	                          Implemented — renders landing.html
-GET /register	                  Implemented — renders register.html
-POST /register	                Implemented — validates, creates user, redirects to login
-GET /login	                    Implemented — renders login.html
-GET /logout	                    Stub — Step 3
+GET /register	                  Implemented — renders register.html; redirects to /profile if logged in
+POST /register	                Implemented — validates, creates user, redirects to login; redirects to /profile if logged in
+GET /login	                    Implemented — renders login.html; redirects to /profile if logged in
+POST /login	                    Implemented — verifies credentials, sets session (user_id, user_name), redirects to /profile
+GET /logout	                    Implemented — clears session, flashes, redirects to /login
 GET /profile	                  Stub — Step 4
 GET /expenses/add	              Stub — Step 7
 GET /expenses/<id>/edit	        Stub — Step 8
@@ -86,6 +87,6 @@ GET /expenses/<id>/delete	      Stub — Step 9
 - Never put DB logic in route functions — it belongs in database/db.py
 - Never install new packages mid-feature without flagging it — keep requirements.txt in sync
 - Never use JS frameworks — the frontend is intentionally vanilla
-- database/db.py is currently empty — do not assume helpers exist until the step that implements them
+- database/db.py only has the helpers added by completed steps (get_db, init_db, seed_db, get_user_by_email, create_user, authenticate_user) — do not assume others exist until the step that implements them
 - FK enforcement is manual — SQLite foreign keys are off by default; get_db() must run PRAGMA foreign_keys = ON on every connection
 - The app runs on port 5001, not the Flask default 5000 — don't change this
