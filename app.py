@@ -1,11 +1,19 @@
 import os
 
-from flask import Flask, flash, redirect, render_template, request, url_for
+from flask import Flask, flash, redirect, render_template, request, session, url_for
 
-from database.db import create_user, get_db, get_user_by_email, init_db, seed_db
+from database.db import (
+    authenticate_user,
+    create_user,
+    get_db,
+    get_user_by_email,
+    init_db,
+    seed_db,
+)
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-change-me")
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 
 with app.app_context():
     init_db()
@@ -17,6 +25,8 @@ with app.app_context():
 # ------------------------------------------------------------------ #
 
 DUPLICATE_EMAIL_ERROR = "An account with that email already exists."
+LOGIN_REQUIRED_ERROR = "All fields are required."
+INVALID_LOGIN_ERROR = "Invalid email or password."
 
 
 def validate_registration(name, email, password):
@@ -35,6 +45,10 @@ def _render_register_error(error, name, email):
     return render_template("register.html", error=error, name=name, email=email), 400
 
 
+def _render_login_error(error, email, status):
+    return render_template("login.html", error=error, email=email), status
+
+
 # ------------------------------------------------------------------ #
 # Routes                                                              #
 # ------------------------------------------------------------------ #
@@ -46,6 +60,8 @@ def landing():
 
 @app.route("/register", methods=["GET", "POST"])
 def register():
+    if session.get("user_id"):
+        return redirect(url_for("profile"))
     if request.method == "GET":
         return render_template("register.html")
 
@@ -65,9 +81,34 @@ def register():
     return redirect(url_for("login"))
 
 
-@app.route("/login")
+@app.route("/login", methods=["GET", "POST"])
 def login():
-    return render_template("login.html")
+    if request.method == "GET":
+        if session.get("user_id"):
+            return redirect(url_for("profile"))
+        return render_template("login.html")
+
+    email = request.form.get("email", "").strip().lower()
+    password = request.form.get("password", "")
+
+    if not email or not password:
+        return _render_login_error(LOGIN_REQUIRED_ERROR, email, 400)
+
+    user = authenticate_user(email, password)
+    if user is None:
+        return _render_login_error(INVALID_LOGIN_ERROR, email, 401)
+
+    session.clear()
+    session["user_id"] = user["id"]
+    session["user_name"] = user["name"]
+    return redirect(url_for("profile"))
+
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    flash("You have been signed out.")
+    return redirect(url_for("login"))
 
 
 @app.route("/terms")
@@ -83,11 +124,6 @@ def privacy():
 # ------------------------------------------------------------------ #
 # Placeholder routes — students will implement these                  #
 # ------------------------------------------------------------------ #
-
-@app.route("/logout")
-def logout():
-    return "Logout — coming in Step 3"
-
 
 @app.route("/profile")
 def profile():
