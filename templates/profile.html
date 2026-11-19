@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+
+{% block title %}Profile — Spendly{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/profile.css') }}">
+{% endblock %}
+
+{% block content %}
+<section class="profile-section">
+    <div class="profile-inner">
+
+        <article class="profile-card profile-user">
+            <div class="profile-avatar" aria-hidden="true">{{ (user.name.split()|map('first')|join|upper)[:2] }}</div>
+            <div class="profile-user-info">
+                <h1 class="profile-name">{{ user.name }}</h1>
+                <p class="profile-meta">
+                    <i data-lucide="mail" class="profile-icon" aria-hidden="true"></i>
+                    <span>{{ user.email }}</span>
+                </p>
+                <p class="profile-meta">
+                    <i data-lucide="calendar" class="profile-icon" aria-hidden="true"></i>
+                    <span>Member since {{ user.member_since }}</span>
+                </p>
+            </div>
+            {# Remove once the profile is wired to real data. #}
+            <span class="profile-pill">Sample data</span>
+        </article>
+
+        <div class="profile-stats">
+            <div class="profile-card profile-stat">
+                <p class="profile-stat-label">
+                    <i data-lucide="wallet" class="profile-icon" aria-hidden="true"></i>
+                    Total spent
+                </p>
+                <span class="profile-stat-value">{{ summary.total_spent|inr }}</span>
+            </div>
+            <div class="profile-card profile-stat">
+                <p class="profile-stat-label">
+                    <i data-lucide="receipt" class="profile-icon" aria-hidden="true"></i>
+                    Transactions
+                </p>
+                <span class="profile-stat-value">{{ summary.transaction_count }}</span>
+            </div>
+            <div class="profile-card profile-stat">
+                <p class="profile-stat-label">
+                    <i data-lucide="tag" class="profile-icon" aria-hidden="true"></i>
+                    Top category
+                </p>
+                <span class="profile-stat-value">{{ summary.top_category }}</span>
+            </div>
+        </div>
+
+        <div class="profile-grid">
+            <article class="profile-card profile-history">
+                <header class="profile-card-header">
+                    <h2 class="profile-card-title">
+                        <i data-lucide="history" class="profile-icon" aria-hidden="true"></i>
+                        Recent transactions
+                    </h2>
+                </header>
+                <div class="profile-table-wrap">
+                    <table class="profile-table">
+                        <thead>
+                            <tr>
+                                <th scope="col">Date</th>
+                                <th scope="col">Description</th>
+                                <th scope="col">Category</th>
+                                <th scope="col" class="profile-num">Amount</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for tx in transactions %}
+                            <tr class="profile-row">
+                                <td class="profile-date">{{ tx.date }}</td>
+                                <td>{% if tx.description %}{{ tx.description }}{% else %}<span class="profile-empty">—</span>{% endif %}</td>
+                                <td><span class="profile-badge">{{ tx.category }}</span></td>
+                                <td class="profile-num">{{ tx.amount|inr }}</td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="4" class="profile-empty-row">No expenses yet.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </article>
+
+            <article class="profile-card profile-breakdown">
+                <header class="profile-card-header">
+                    <h2 class="profile-card-title">
+                        <i data-lucide="chart-pie" class="profile-icon" aria-hidden="true"></i>
+                        Spending by category
+                    </h2>
+                </header>
+                <ul class="profile-bars">
+                    {% for c in categories %}
+                    <li class="profile-bar-row">
+                        <div class="profile-bar-head">
+                            <span class="profile-bar-name">{{ c.name }}</span>
+                            <span class="profile-bar-amt">{{ c.amount|inr }}<span class="profile-bar-pct">{{ c.percent }}%</span></span>
+                        </div>
+                        <svg class="profile-bar-track" aria-hidden="true" focusable="false">
+                            <rect class="profile-bar" width="{{ c.percent }}%" height="100%" rx="4"></rect>
+                        </svg>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </article>
+        </div>
+
+    </div>
+</section>
+{% endblock %}

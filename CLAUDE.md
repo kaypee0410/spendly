@@ -14,7 +14,8 @@ spendly/
 ├── static/
 │   ├── css/
 │   │   ├── style.css       # Global styles
-│   │   └── landing.css     # Landing-page-only styles
+│   │   ├── landing.css     # Landing-page-only styles
+│   │   └── profile.css     # Profile-page-only styles
 │   └── js/
 │       └── main.js         # Vanilla JS only
 └── requirements.txt
@@ -75,7 +76,7 @@ POST /register	                Implemented — validates, creates user, redirect
 GET /login	                    Implemented — renders login.html; redirects to /profile if logged in
 POST /login	                    Implemented — verifies credentials, sets session (user_id, user_name), redirects to /profile
 GET /logout	                    Implemented — clears session, flashes, redirects to /login
-GET /profile	                  Stub — Step 4
+GET /profile	                  Implemented — renders profile.html with placeholder data; redirects to /login with flash if logged out
 GET /expenses/add	              Stub — Step 7
 GET /expenses/<id>/edit	        Stub — Step 8
 GET /expenses/<id>/delete	      Stub — Step 9
