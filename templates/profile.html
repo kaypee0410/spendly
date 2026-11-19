@@ -25,6 +25,38 @@
             </div>
         </article>
 
+        <form class="profile-card profile-filter" method="get" action="{{ url_for('profile') }}" aria-label="Filter by date">
+            <div class="profile-filter-fields">
+                <div class="profile-filter-field">
+                    <label for="start_date">Start date</label>
+                    <input type="date" id="start_date" name="start_date" class="form-input" value="{{ start_date or '' }}">
+                </div>
+                <div class="profile-filter-field">
+                    <label for="end_date">End date</label>
+                    <input type="date" id="end_date" name="end_date" class="form-input" value="{{ end_date or '' }}">
+                </div>
+                <div class="profile-filter-actions">
+                    <button type="submit" class="btn-primary profile-filter-btn">Apply</button>
+                    <a href="{{ url_for('profile') }}" class="btn-ghost profile-filter-btn">Clear</a>
+                </div>
+            </div>
+            <ul class="profile-presets">
+                {% for p in presets %}
+                <li><a class="profile-preset{% if filter_active and p.start_date == start_date and p.end_date == end_date %} is-active{% endif %}" href="{{ url_for('profile', start_date=p.start_date, end_date=p.end_date) }}">{{ p.label }}</a></li>
+                {% endfor %}
+                <li><a class="profile-preset{% if not filter_active %} is-active{% endif %}" href="{{ url_for('profile') }}">All time</a></li>
+            </ul>
+            {% if filter_active %}
+            <p class="profile-filter-caption">
+                <i data-lucide="calendar-range" class="profile-icon" aria-hidden="true"></i>
+                {% if start_date and end_date %}Showing {{ start_date|short_date }} – {{ end_date|short_date }}{% elif start_date %}Showing from {{ start_date|short_date }}{% else %}Showing up to {{ end_date|short_date }}{% endif %}
+            </p>
+            {% endif %}
+            {% if error %}
+            <p class="auth-error profile-filter-error" role="alert">{{ error }}</p>
+            {% endif %}
+        </form>
+
         <div class="profile-stats">
             <div class="profile-card profile-stat">
                 <p class="profile-stat-label">
@@ -77,7 +109,7 @@
                             </tr>
                             {% else %}
                             <tr>
-                                <td colspan="4" class="profile-empty-row">No expenses yet.</td>
+                                <td colspan="4" class="profile-empty-row">{% if filter_active %}No expenses in this period.{% else %}No expenses yet.{% endif %}</td>
                             </tr>
                             {% endfor %}
                         </tbody>
@@ -104,7 +136,7 @@
                         </svg>
                     </li>
                     {% else %}
-                    <li class="profile-empty-row">No expenses yet.</li>
+                    <li class="profile-empty-row">{% if filter_active %}No expenses in this period.{% else %}No expenses yet.{% endif %}</li>
                     {% endfor %}
                 </ul>
             </article>

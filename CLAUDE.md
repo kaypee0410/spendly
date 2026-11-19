@@ -76,7 +76,7 @@ POST /register	                Implemented — validates, creates user, redirect
 GET /login	                    Implemented — renders login.html; redirects to /profile if logged in
 POST /login	                    Implemented — verifies credentials, sets session (user_id, user_name), redirects to /profile
 GET /logout	                    Implemented — clears session, flashes, redirects to /login
-GET /profile	                  Implemented — renders profile.html with live DB data (user, summary, recent transactions, category breakdown); redirects to /login with flash if logged out or the session's user no longer exists
+GET /profile	                  Implemented — renders profile.html with live DB data (user, summary, recent transactions, category breakdown); redirects to /login with flash if logged out or the session's user no longer exists. Optional ?start_date=&end_date= (YYYY-MM-DD, inclusive) filters all three sections; invalid or reversed dates → 400 with inline error and unfiltered data
 GET /expenses/add	              Stub — Step 7
 GET /expenses/<id>/edit	        Stub — Step 8
 GET /expenses/<id>/delete	      Stub — Step 9

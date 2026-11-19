@@ -1,4 +1,5 @@
 import os
+from datetime import date, timedelta
 
 from flask import Flask, flash, redirect, render_template, request, session, url_for
 
@@ -32,12 +33,67 @@ DUPLICATE_EMAIL_ERROR = "An account with that email already exists."
 LOGIN_REQUIRED_ERROR = "All fields are required."
 INVALID_LOGIN_ERROR = "Invalid email or password."
 PROFILE_LOGIN_REQUIRED = "Please sign in to view your profile."
+INVALID_DATE_ERROR = "Please enter valid dates."
+DATE_ORDER_ERROR = "Start date must be on or before end date."
 
 
 @app.template_filter("inr")
 def format_inr(value):
     """Format a number as rupees, e.g. 21020 -> '₹21,020.00'."""
     return f"₹{value:,.2f}"
+
+
+@app.template_filter("short_date")
+def format_short_date(value):
+    """Format an ISO date as '1 Nov 2026' (no platform-specific %-d)."""
+    d = date.fromisoformat(value)
+    return f"{d.day} {d.strftime('%b %Y')}"
+
+
+def _parse_iso_date(value):
+    """Parse a strict YYYY-MM-DD string; raise ValueError for anything else."""
+    parsed = date.fromisoformat(value)
+    # Python 3.11+ also accepts e.g. '20261101' or '2026-W47-4' — reject those.
+    if parsed.isoformat() != value:
+        raise ValueError(value)
+    return parsed
+
+
+def parse_date_filter(args):
+    """Return (start_iso, end_iso, error) from query args.
+
+    Blank values mean "not provided". On error both dates are None.
+    """
+    raw_start = args.get("start_date", "").strip()
+    raw_end = args.get("end_date", "").strip()
+    try:
+        start = _parse_iso_date(raw_start) if raw_start else None
+        end = _parse_iso_date(raw_end) if raw_end else None
+    except ValueError:
+        return None, None, INVALID_DATE_ERROR
+    if start and end and start > end:
+        return None, None, DATE_ORDER_ERROR
+    return (
+        start.isoformat() if start else None,
+        end.isoformat() if end else None,
+        None,
+    )
+
+
+def build_date_presets(today):
+    """Return quick-filter ranges relative to today, as ISO strings."""
+    return [
+        {
+            "label": "This month",
+            "start_date": today.replace(day=1).isoformat(),
+            "end_date": today.isoformat(),
+        },
+        {
+            "label": "Last 30 days",
+            "start_date": (today - timedelta(days=29)).isoformat(),
+            "end_date": today.isoformat(),
+        },
+    ]
 
 
 def validate_registration(name, email, password):
@@ -145,13 +201,23 @@ def profile():
         flash(PROFILE_LOGIN_REQUIRED)
         return redirect(url_for("login"))
 
-    return render_template(
+    # On error, parse_date_filter returns None dates -> unfiltered fallback.
+    start_date, end_date, error = parse_date_filter(request.args)
+    html = render_template(
         "profile.html",
         user=user,
-        summary=get_summary_stats(user_id),
-        transactions=get_recent_transactions(user_id),
-        categories=get_category_breakdown(user_id),
+        summary=get_summary_stats(user_id, start_date, end_date),
+        transactions=get_recent_transactions(
+            user_id, start_date=start_date, end_date=end_date
+        ),
+        categories=get_category_breakdown(user_id, start_date, end_date),
+        start_date=start_date,
+        end_date=end_date,
+        error=error,
+        presets=build_date_presets(date.today()),
+        filter_active=start_date is not None or end_date is not None,
     )
+    return html, 400 if error else 200
 
 
 # ------------------------------------------------------------------ #

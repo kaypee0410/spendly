@@ -225,8 +225,11 @@ def test_profile_seed_user(client):
     assert html.count('class="profile-row"') == 8
     assert html.count('class="profile-bar-row"') == 7
 
+    # Search only the transactions table body: the date-filter presets (Step 6)
+    # also render ISO dates earlier in the page.
+    tbody = html[html.index("<tbody>"):html.index("</tbody>")]
     days = sorted((e[0] for e in SEED_EXPENSES), reverse=True)
-    positions = [html.index(seed_date(d)) for d in days]
+    positions = [tbody.index(seed_date(d)) for d in days]
     assert positions == sorted(positions)
 
 
