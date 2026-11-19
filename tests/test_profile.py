@@ -1,18 +1,23 @@
 import re
-from collections import defaultdict
+from datetime import date, datetime
 from pathlib import Path
 
-from app import (
-    PROFILE_CATEGORIES,
-    PROFILE_SUMMARY,
-    PROFILE_TRANSACTIONS,
-    PROFILE_USER,
-    format_inr,
-)
-from database.db import get_user_by_email
+from app import format_inr
+from database.db import SEED_EXPENSES, get_user_by_email
 
 ROOT = Path(__file__).resolve().parent.parent
 DEMO = {"email": "demo@spendly.com", "password": "demo123"}
+
+# Seed data per category, largest first, with rounded share of 1484.24.
+SEED_BREAKDOWN = [
+    ("Bills", 81),
+    ("Shopping", 6),
+    ("Food", 4),
+    ("Health", 4),
+    ("Transport", 2),
+    ("Entertainment", 2),
+    ("Other", 1),
+]
 
 
 def log_in(client):
@@ -55,14 +60,19 @@ def test_login_then_profile_renders(client):
 
 
 # ------------------------------------------------------------------ #
-# Rendered content                                                    #
+# Rendered content (seed data)                                        #
 # ------------------------------------------------------------------ #
 
 def test_profile_user_card(client):
     html = get_profile_html(client)
-    assert PROFILE_USER["name"] in html
-    assert PROFILE_USER["email"] in html
-    assert f"Member since {PROFILE_USER['member_since']}" in html
+    user = get_user_by_email(DEMO["email"])
+    member_since = datetime.strptime(
+        user["created_at"], "%Y-%m-%d %H:%M:%S"
+    ).strftime("%B %Y")
+
+    assert "Demo User" in html
+    assert "demo@spendly.com" in html
+    assert f"Member since {member_since}" in html
     assert '<div class="profile-avatar" aria-hidden="true">DU</div>' in html
 
 
@@ -71,29 +81,36 @@ def test_profile_summary_stats(client):
     assert html.count('class="profile-card profile-stat"') == 3
     for label in ("Total spent", "Transactions", "Top category"):
         assert label in html
-    assert '<span class="profile-stat-value">₹21,020.00</span>' in html
+    assert '<span class="profile-stat-value">₹1,484.24</span>' in html
     assert '<span class="profile-stat-value">8</span>' in html
     assert '<span class="profile-stat-value">Bills</span>' in html
 
 
 def test_profile_transaction_table(client):
     html = get_profile_html(client)
-    assert html.count('class="profile-row"') == len(PROFILE_TRANSACTIONS)
-    for tx in PROFILE_TRANSACTIONS:
-        assert tx["date"] in html
-        assert format_inr(tx["amount"]) in html
-        if tx["description"]:
-            assert tx["description"] in html
+    assert html.count('class="profile-row"') == len(SEED_EXPENSES)
+    today = date.today()
+    for day, amount, _category, description in SEED_EXPENSES:
+        assert today.replace(day=day).isoformat() in html
+        assert format_inr(amount) in html
+        if description:
+            assert description in html
     assert '<span class="profile-empty">—</span>' in html
     assert '<span class="profile-badge">Food</span>' in html
 
 
 def test_profile_category_breakdown(client):
     html = get_profile_html(client)
-    assert html.count('class="profile-bar-row"') == len(PROFILE_CATEGORIES)
-    for c in PROFILE_CATEGORIES:
-        assert f'<span class="profile-bar-name">{c["name"]}</span>' in html
-        assert f'<rect class="profile-bar" width="{c["percent"]}%"' in html
+    assert html.count('class="profile-bar-row"') == len(SEED_BREAKDOWN)
+    for name, pct in SEED_BREAKDOWN:
+        assert f'<span class="profile-bar-name">{name}</span>' in html
+        assert f'<rect class="profile-bar" width="{pct}%"' in html
+
+
+def test_no_sample_data_pill(client):
+    html = get_profile_html(client)
+    assert "Sample data" not in html
+    assert "profile-pill" not in html
 
 
 def test_profile_navbar_logged_in(client):
@@ -117,31 +134,8 @@ def test_no_inline_styles(client):
 
 
 # ------------------------------------------------------------------ #
-# Placeholder data and static files                                   #
+# Static files                                                        #
 # ------------------------------------------------------------------ #
-
-def test_placeholder_data_consistent():
-    total = PROFILE_SUMMARY["total_spent"]
-    assert sum(tx["amount"] for tx in PROFILE_TRANSACTIONS) == total
-    assert sum(c["amount"] for c in PROFILE_CATEGORIES) == total
-    assert PROFILE_SUMMARY["transaction_count"] == len(PROFILE_TRANSACTIONS)
-    assert PROFILE_SUMMARY["top_category"] == PROFILE_CATEGORIES[0]["name"]
-
-    amounts = [c["amount"] for c in PROFILE_CATEGORIES]
-    assert amounts == sorted(amounts, reverse=True)
-    for c in PROFILE_CATEGORIES:
-        assert c["percent"] == round(c["amount"] / total * 100)
-    assert abs(sum(c["percent"] for c in PROFILE_CATEGORIES) - 100) <= 1
-
-    by_category = defaultdict(float)
-    for tx in PROFILE_TRANSACTIONS:
-        by_category[tx["category"]] += tx["amount"]
-    assert by_category == {c["name"]: c["amount"] for c in PROFILE_CATEGORIES}
-
-    dates = [tx["date"] for tx in PROFILE_TRANSACTIONS]
-    assert dates == sorted(dates, reverse=True)
-    assert any(tx["description"] is None for tx in PROFILE_TRANSACTIONS)
-
 
 def test_no_hex_or_style_tags():
     hex_re = re.compile(r"#[0-9a-fA-F]{3,8}\b")

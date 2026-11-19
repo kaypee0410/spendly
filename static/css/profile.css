@@ -84,18 +84,6 @@
     color: var(--ink-faint);
 }
 
-.profile-pill {
-    align-self: flex-start;
-    padding: 0.35rem 0.85rem;
-    border-radius: 999px;
-    background: var(--accent-light);
-    color: var(--accent);
-    font-size: 0.75rem;
-    font-weight: 500;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-}
-
 /* ---- Summary stats ----------------------------------------------- */
 
 .profile-stats {
