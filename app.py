@@ -28,6 +28,48 @@ DUPLICATE_EMAIL_ERROR = "An account with that email already exists."
 LOGIN_REQUIRED_ERROR = "All fields are required."
 INVALID_LOGIN_ERROR = "Invalid email or password."
 
+# Placeholder profile data — replaced with DB queries in a later step.
+# Invariants: total_spent == sum(transactions) == sum(categories);
+# transaction_count == len(transactions); top_category == categories[0]["name"]
+PROFILE_USER = {
+    "name": "Demo User",
+    "email": "demo@spendly.com",
+    "member_since": "March 2026",
+}
+
+PROFILE_SUMMARY = {
+    "total_spent": 21020.00,
+    "transaction_count": 8,
+    "top_category": "Bills",
+}
+
+PROFILE_TRANSACTIONS = [  # newest first
+    {"date": "2026-11-18", "description": "Monthly rent", "category": "Bills", "amount": 12000.00},
+    {"date": "2026-11-16", "description": "Groceries", "category": "Food", "amount": 2340.00},
+    {"date": "2026-11-14", "description": "Metro card top-up", "category": "Transport", "amount": 500.00},
+    {"date": "2026-11-12", "description": "Pharmacy", "category": "Health", "amount": 860.00},
+    {"date": "2026-11-09", "description": "Movie tickets", "category": "Entertainment", "amount": 640.00},
+    {"date": "2026-11-06", "description": "Running shoes", "category": "Shopping", "amount": 3200.00},
+    {"date": "2026-11-04", "description": "Lunch with friends", "category": "Food", "amount": 1180.00},
+    {"date": "2026-11-02", "description": None, "category": "Other", "amount": 300.00},
+]
+
+PROFILE_CATEGORIES = [  # amount desc; percent = round(amount / total * 100)
+    {"name": "Bills", "amount": 12000.00, "percent": 57},
+    {"name": "Food", "amount": 3520.00, "percent": 17},
+    {"name": "Shopping", "amount": 3200.00, "percent": 15},
+    {"name": "Health", "amount": 860.00, "percent": 4},
+    {"name": "Entertainment", "amount": 640.00, "percent": 3},
+    {"name": "Transport", "amount": 500.00, "percent": 2},
+    {"name": "Other", "amount": 300.00, "percent": 1},
+]
+
+
+@app.template_filter("inr")
+def format_inr(value):
+    """Format a number as rupees, e.g. 21020 -> '₹21,020.00'."""
+    return f"₹{value:,.2f}"
+
 
 def validate_registration(name, email, password):
     """Return the first validation error message, or None if the input is valid."""
@@ -121,14 +163,23 @@ def privacy():
     return render_template("privacy.html")
 
 
+@app.route("/profile")
+def profile():
+    if not session.get("user_id"):
+        flash("Please sign in to view your profile.")
+        return redirect(url_for("login"))
+    return render_template(
+        "profile.html",
+        user=PROFILE_USER,
+        summary=PROFILE_SUMMARY,
+        transactions=PROFILE_TRANSACTIONS,
+        categories=PROFILE_CATEGORIES,
+    )
+
+
 # ------------------------------------------------------------------ #
 # Placeholder routes — students will implement these                  #
 # ------------------------------------------------------------------ #
-
-@app.route("/profile")
-def profile():
-    return "Profile page — coming in Step 4"
-
 
 @app.route("/expenses/add")
 def add_expense():

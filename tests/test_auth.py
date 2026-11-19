@@ -244,6 +244,20 @@ def test_session_cookie_samesite_lax(app):
     assert app.config["SESSION_COOKIE_SAMESITE"] == "Lax"
 
 
-def test_profile_stub_unchanged(client):
+def test_profile_requires_login(client):
     resp = client.get("/profile")
-    assert resp.get_data(as_text=True) == "Profile page — coming in Step 4"
+    assert resp.status_code == 302
+    assert resp.headers["Location"].endswith("/login")
+
+
+@pytest.mark.parametrize(
+    "path, expected",
+    [
+        ("/expenses/add", "Add expense — coming in Step 7"),
+        ("/expenses/1/edit", "Edit expense — coming in Step 8"),
+        ("/expenses/1/delete", "Delete expense — coming in Step 9"),
+    ],
+)
+def test_expense_stubs_unchanged(client, path, expected):
+    resp = client.get(path)
+    assert resp.get_data(as_text=True) == expected
