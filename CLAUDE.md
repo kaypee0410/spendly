@@ -7,7 +7,7 @@ Spendly is a lightweight personal expense tracker built with Flask and SQLite.
 spendly/
 ├── app.py              # All routes — single file, no blueprints
 ├── database/
-│   └── db.py           # SQLite helpers: get_db(), init_db(), seed_db()
+│   └── db.py           # SQLite helpers: get_db(), init_db(), seed_db(), auth + profile queries
 ├── templates/
 │   ├── base.html       # Shared layout — all templates must extend this
 │   └── *.html          # One template per page
@@ -76,7 +76,7 @@ POST /register	                Implemented — validates, creates user, redirect
 GET /login	                    Implemented — renders login.html; redirects to /profile if logged in
 POST /login	                    Implemented — verifies credentials, sets session (user_id, user_name), redirects to /profile
 GET /logout	                    Implemented — clears session, flashes, redirects to /login
-GET /profile	                  Implemented — renders profile.html with placeholder data; redirects to /login with flash if logged out
+GET /profile	                  Implemented — renders profile.html with live DB data (user, summary, recent transactions, category breakdown); redirects to /login with flash if logged out or the session's user no longer exists
 GET /expenses/add	              Stub — Step 7
 GET /expenses/<id>/edit	        Stub — Step 8
 GET /expenses/<id>/delete	      Stub — Step 9
@@ -88,6 +88,6 @@ GET /expenses/<id>/delete	      Stub — Step 9
 - Never put DB logic in route functions — it belongs in database/db.py
 - Never install new packages mid-feature without flagging it — keep requirements.txt in sync
 - Never use JS frameworks — the frontend is intentionally vanilla
-- database/db.py only has the helpers added by completed steps (get_db, init_db, seed_db, get_user_by_email, create_user, authenticate_user) — do not assume others exist until the step that implements them
+- database/db.py only has the helpers added by completed steps (get_db, init_db, seed_db, get_user_by_email, create_user, authenticate_user, get_user_by_id, get_summary_stats, get_recent_transactions, get_category_breakdown) — do not assume others exist until the step that implements them
 - FK enforcement is manual — SQLite foreign keys are off by default; get_db() must run PRAGMA foreign_keys = ON on every connection
 - The app runs on port 5001, not the Flask default 5000 — don't change this

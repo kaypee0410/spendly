@@ -23,8 +23,6 @@
                     <span>Member since {{ user.member_since }}</span>
                 </p>
             </div>
-            {# Remove once the profile is wired to real data. #}
-            <span class="profile-pill">Sample data</span>
         </article>
 
         <div class="profile-stats">
@@ -99,12 +97,14 @@
                     <li class="profile-bar-row">
                         <div class="profile-bar-head">
                             <span class="profile-bar-name">{{ c.name }}</span>
-                            <span class="profile-bar-amt">{{ c.amount|inr }}<span class="profile-bar-pct">{{ c.percent }}%</span></span>
+                            <span class="profile-bar-amt">{{ c.amount|inr }}<span class="profile-bar-pct">{{ c.pct }}%</span></span>
                         </div>
                         <svg class="profile-bar-track" aria-hidden="true" focusable="false">
-                            <rect class="profile-bar" width="{{ c.percent }}%" height="100%" rx="4"></rect>
+                            <rect class="profile-bar" width="{{ c.pct }}%" height="100%" rx="4"></rect>
                         </svg>
                     </li>
+                    {% else %}
+                    <li class="profile-empty-row">No expenses yet.</li>
                     {% endfor %}
                 </ul>
             </article>

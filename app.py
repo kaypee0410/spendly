@@ -5,8 +5,12 @@ from flask import Flask, flash, redirect, render_template, request, session, url
 from database.db import (
     authenticate_user,
     create_user,
+    get_category_breakdown,
     get_db,
+    get_recent_transactions,
+    get_summary_stats,
     get_user_by_email,
+    get_user_by_id,
     init_db,
     seed_db,
 )
@@ -27,42 +31,7 @@ with app.app_context():
 DUPLICATE_EMAIL_ERROR = "An account with that email already exists."
 LOGIN_REQUIRED_ERROR = "All fields are required."
 INVALID_LOGIN_ERROR = "Invalid email or password."
-
-# Placeholder profile data — replaced with DB queries in a later step.
-# Invariants: total_spent == sum(transactions) == sum(categories);
-# transaction_count == len(transactions); top_category == categories[0]["name"]
-PROFILE_USER = {
-    "name": "Demo User",
-    "email": "demo@spendly.com",
-    "member_since": "March 2026",
-}
-
-PROFILE_SUMMARY = {
-    "total_spent": 21020.00,
-    "transaction_count": 8,
-    "top_category": "Bills",
-}
-
-PROFILE_TRANSACTIONS = [  # newest first
-    {"date": "2026-11-18", "description": "Monthly rent", "category": "Bills", "amount": 12000.00},
-    {"date": "2026-11-16", "description": "Groceries", "category": "Food", "amount": 2340.00},
-    {"date": "2026-11-14", "description": "Metro card top-up", "category": "Transport", "amount": 500.00},
-    {"date": "2026-11-12", "description": "Pharmacy", "category": "Health", "amount": 860.00},
-    {"date": "2026-11-09", "description": "Movie tickets", "category": "Entertainment", "amount": 640.00},
-    {"date": "2026-11-06", "description": "Running shoes", "category": "Shopping", "amount": 3200.00},
-    {"date": "2026-11-04", "description": "Lunch with friends", "category": "Food", "amount": 1180.00},
-    {"date": "2026-11-02", "description": None, "category": "Other", "amount": 300.00},
-]
-
-PROFILE_CATEGORIES = [  # amount desc; percent = round(amount / total * 100)
-    {"name": "Bills", "amount": 12000.00, "percent": 57},
-    {"name": "Food", "amount": 3520.00, "percent": 17},
-    {"name": "Shopping", "amount": 3200.00, "percent": 15},
-    {"name": "Health", "amount": 860.00, "percent": 4},
-    {"name": "Entertainment", "amount": 640.00, "percent": 3},
-    {"name": "Transport", "amount": 500.00, "percent": 2},
-    {"name": "Other", "amount": 300.00, "percent": 1},
-]
+PROFILE_LOGIN_REQUIRED = "Please sign in to view your profile."
 
 
 @app.template_filter("inr")
@@ -165,15 +134,23 @@ def privacy():
 
 @app.route("/profile")
 def profile():
-    if not session.get("user_id"):
-        flash("Please sign in to view your profile.")
+    user_id = session.get("user_id")
+    if not user_id:
+        flash(PROFILE_LOGIN_REQUIRED)
         return redirect(url_for("login"))
+
+    user = get_user_by_id(user_id)
+    if user is None:  # stale session — the user row no longer exists
+        session.clear()  # clear before flash(), or the flash is wiped too
+        flash(PROFILE_LOGIN_REQUIRED)
+        return redirect(url_for("login"))
+
     return render_template(
         "profile.html",
-        user=PROFILE_USER,
-        summary=PROFILE_SUMMARY,
-        transactions=PROFILE_TRANSACTIONS,
-        categories=PROFILE_CATEGORIES,
+        user=user,
+        summary=get_summary_stats(user_id),
+        transactions=get_recent_transactions(user_id),
+        categories=get_category_breakdown(user_id),
     )
 
 
