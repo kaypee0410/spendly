@@ -514,15 +514,6 @@ def test_cancel_link_goes_to_profile_without_saving(client):
     assert count_expenses() == before
 
 
-@pytest.mark.parametrize("url,text", [
-    ("/expenses/1/delete", "Delete expense — coming in Step 9"),
-])
-def test_later_stubs_unchanged(client, url, text):
-    resp = client.get(url)
-    assert resp.status_code == 200
-    assert resp.get_data(as_text=True) == text
-
-
 # ------------------------------------------------------------------ #
 # Styling rules                                                       #
 # ------------------------------------------------------------------ #

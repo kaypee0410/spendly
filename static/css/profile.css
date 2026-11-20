@@ -301,15 +301,16 @@
     font-weight: 500;
 }
 
-/* ---- Row actions (Edit) ---- */
+/* ---- Row actions (Edit, Delete) ---- */
 
 .profile-table .profile-actions {
-    width: 1%; /* shrink to the link; Description gives up the space */
+    width: 1%; /* shrink to the links; Description gives up the space */
     white-space: nowrap;
     text-align: right;
 }
 
-.profile-edit-link {
+.profile-edit-link,
+.profile-delete-link {
     display: inline-block;
     padding: 0.2rem 0.55rem;
     border-radius: var(--radius-sm);
@@ -324,6 +325,16 @@
 .profile-edit-link:focus-visible {
     background: var(--accent-light);
     color: var(--accent);
+}
+
+.profile-delete-link {
+    margin-left: 0.25rem;
+}
+
+.profile-delete-link:hover,
+.profile-delete-link:focus-visible {
+    background: var(--danger-light);
+    color: var(--danger);
 }
 
 .profile-empty {

@@ -237,7 +237,7 @@ def test_navbar_escapes_user_name(client):
 
 
 # ------------------------------------------------------------------ #
-# Config and untouched stubs                                          #
+# Config                                                              #
 # ------------------------------------------------------------------ #
 
 def test_session_cookie_samesite_lax(app):
@@ -248,14 +248,3 @@ def test_profile_requires_login(client):
     resp = client.get("/profile")
     assert resp.status_code == 302
     assert resp.headers["Location"].endswith("/login")
-
-
-@pytest.mark.parametrize(
-    "path, expected",
-    [
-        ("/expenses/1/delete", "Delete expense — coming in Step 9"),
-    ],
-)
-def test_expense_stubs_unchanged(client, path, expected):
-    resp = client.get(path)
-    assert resp.get_data(as_text=True) == expected
