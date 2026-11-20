@@ -47,6 +47,12 @@ def seed_date(day):
     return date.today().replace(day=day).isoformat()
 
 
+def without_ids(rows):
+    """Step 8 added an int `id` to each row; check it, then compare the rest."""
+    assert all(isinstance(r["id"], int) for r in rows)
+    return [{k: v for k, v in r.items() if k != "id"} for r in rows]
+
+
 def log_in_as(client, user_id, name="Demo User"):
     with client.session_transaction() as sess:
         sess["user_id"] = user_id
@@ -132,7 +138,7 @@ def test_recent_transactions_ordered_newest_first(app):
             SEED_EXPENSES, key=lambda e: e[0], reverse=True
         )
     ]
-    assert rows == expected
+    assert without_ids(rows) == expected
     assert rows[0]["category"] == "Other"
     assert rows[0]["description"] is None
 
@@ -151,7 +157,7 @@ def test_recent_transactions_scoped_to_user(app):
     add_expense(other_id, 42.00, "Food", 28, "Other user's lunch")
 
     assert len(get_recent_transactions(demo_id())) == 8
-    assert get_recent_transactions(other_id) == [
+    assert without_ids(get_recent_transactions(other_id)) == [
         {
             "date": seed_date(28),
             "description": "Other user's lunch",

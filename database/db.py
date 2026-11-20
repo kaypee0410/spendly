@@ -199,7 +199,7 @@ def get_recent_transactions(user_id, limit=10, start_date=None, end_date=None):
     conn = get_db()
     try:
         rows = conn.execute(
-            "SELECT date, description, category, amount FROM expenses "
+            "SELECT id, date, description, category, amount FROM expenses "
             "WHERE user_id = ?" + date_sql + " ORDER BY date DESC, id DESC LIMIT ?",
             [user_id, *date_params, limit],
         ).fetchall()
@@ -253,5 +253,44 @@ def create_expense(user_id, amount, category, date, description=None):
         )
         conn.commit()
         return cur.lastrowid
+    finally:
+        conn.close()
+
+
+def get_expense_by_id(expense_id, user_id):
+    """Return {id, amount, category, date, description} if user_id owns it, else None.
+
+    Ownership is enforced in SQL, so another user's id looks exactly like a
+    missing one.
+    """
+    conn = get_db()
+    try:
+        row = conn.execute(
+            "SELECT id, amount, category, date, description FROM expenses "
+            "WHERE id = ? AND user_id = ?",
+            (expense_id, user_id),
+        ).fetchone()
+    except OverflowError:  # ids beyond SQLite's 64-bit INTEGER can't exist
+        return None
+    finally:
+        conn.close()
+    return dict(row) if row is not None else None
+
+
+def update_expense(expense_id, user_id, amount, category, date, description=None):
+    """Update one expense owned by user_id; return True if exactly one row changed.
+
+    Does no validation; callers validate first. Never touches user_id or
+    created_at.
+    """
+    conn = get_db()
+    try:
+        cur = conn.execute(
+            "UPDATE expenses SET amount = ?, category = ?, date = ?, description = ? "
+            "WHERE id = ? AND user_id = ?",
+            (amount, category, date, description, expense_id, user_id),
+        )
+        conn.commit()
+        return cur.rowcount == 1
     finally:
         conn.close()

@@ -301,6 +301,31 @@
     font-weight: 500;
 }
 
+/* ---- Row actions (Edit) ---- */
+
+.profile-table .profile-actions {
+    width: 1%; /* shrink to the link; Description gives up the space */
+    white-space: nowrap;
+    text-align: right;
+}
+
+.profile-edit-link {
+    display: inline-block;
+    padding: 0.2rem 0.55rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--ink-muted);
+    text-decoration: none;
+    transition: background 0.2s, color 0.2s;
+}
+
+.profile-edit-link:hover,
+.profile-edit-link:focus-visible {
+    background: var(--accent-light);
+    color: var(--accent);
+}
+
 .profile-empty {
     color: var(--ink-faint);
 }
