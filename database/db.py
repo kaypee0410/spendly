@@ -294,3 +294,23 @@ def update_expense(expense_id, user_id, amount, category, date, description=None
         return cur.rowcount == 1
     finally:
         conn.close()
+
+
+def delete_expense(expense_id, user_id):
+    """Delete one expense owned by user_id; return True if exactly one row was removed.
+
+    Ownership is enforced in SQL, so another user's id looks exactly like a
+    missing one and is left untouched. Hard delete; nothing references expenses.
+    """
+    conn = get_db()
+    try:
+        cur = conn.execute(
+            "DELETE FROM expenses WHERE id = ? AND user_id = ?",
+            (expense_id, user_id),
+        )
+        conn.commit()
+        return cur.rowcount == 1
+    except OverflowError:  # ids beyond SQLite's 64-bit INTEGER can't exist
+        return False
+    finally:
+        conn.close()

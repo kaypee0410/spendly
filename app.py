@@ -20,6 +20,7 @@ from database.db import (
     authenticate_user,
     create_expense,
     create_user,
+    delete_expense as db_delete_expense,
     get_category_breakdown,
     get_db,
     get_expense_by_id,
@@ -81,12 +82,14 @@ ANALYTICS_LOGIN_REQUIRED = "Please sign in to view analytics."
 INVALID_DATE_ERROR = "Please enter valid dates."
 DATE_ORDER_ERROR = "Start date must be on or before end date."
 
-# ---- Expense forms: add (Step 7), edit (Step 8) ------------------ #
+# ---- Expense forms: add (Step 7), edit (Step 8), delete (Step 9) - #
 
 ADD_EXPENSE_LOGIN_REQUIRED = "Please sign in to add an expense."
 EDIT_EXPENSE_LOGIN_REQUIRED = "Please sign in to edit an expense."
+DELETE_EXPENSE_LOGIN_REQUIRED = "Please sign in to delete an expense."
 EXPENSE_ADDED = "Expense added."
 EXPENSE_UPDATED = "Expense updated."
+EXPENSE_DELETED = "Expense deleted."
 AMOUNT_REQUIRED_ERROR = "Please enter an amount."
 AMOUNT_INVALID_ERROR = "Please enter a valid amount."
 AMOUNT_NOT_POSITIVE_ERROR = "Amount must be greater than zero."
@@ -519,14 +522,24 @@ def edit_expense(id):
     return redirect(url_for("profile"))
 
 
-# ------------------------------------------------------------------ #
-# Placeholder routes — students will implement these                  #
-# ------------------------------------------------------------------ #
-
-
-@app.route("/expenses/<int:id>/delete")
+@app.route("/expenses/<int:id>/delete", methods=["GET", "POST"])
 def delete_expense(id):
-    return "Delete expense — coming in Step 9"
+    if _current_user() is None:
+        return _login_redirect(DELETE_EXPENSE_LOGIN_REQUIRED)
+
+    # user_id comes from the session only; a missing or foreign id is a 404
+    user_id = session["user_id"]
+    if request.method == "GET":
+        expense = get_expense_by_id(id, user_id)
+        if expense is None:
+            abort(404)
+        return render_template("delete_expense.html", expense=expense)
+
+    # Any submitted field other than csrf_token is ignored.
+    if not db_delete_expense(id, user_id):  # missing, foreign or already deleted
+        abort(404)
+    flash(EXPENSE_DELETED)
+    return redirect(url_for("profile"))
 
 
 if __name__ == "__main__":

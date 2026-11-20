@@ -68,7 +68,7 @@ def expense_form(**extra):
 # Every POST form carries the token                                   #
 # ------------------------------------------------------------------ #
 
-@pytest.mark.parametrize("name", ["login", "register", "add_expense", "edit_expense"])
+@pytest.mark.parametrize("name", ["login", "register", "add_expense", "edit_expense", "delete_expense"])
 def test_every_post_form_template_has_csrf_field(name):
     source = (ROOT / "templates" / f"{name}.html").read_text(encoding="utf-8")
     forms = re.findall(r"<form[^>]*method=\"post\"[^>]*>(.*?)</form>", source, re.I | re.S)

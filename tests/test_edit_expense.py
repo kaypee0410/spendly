@@ -231,11 +231,6 @@ class TestProfileEditLinks:
         assert 'colspan="5"' in html
         assert "No expenses in this period." in html
 
-    def test_no_delete_links_yet(self, client):
-        log_in(client)
-        html = client.get(PROFILE_URL).get_data(as_text=True)
-        assert "/delete" not in html
-
 
 # ------------------------------------------------------------------ #
 # GET form                                                            #
@@ -612,7 +607,7 @@ class TestOwnership:
 
 
 # ------------------------------------------------------------------ #
-# Cancel, stubs, styling                                              #
+# Cancel, styling                                                     #
 # ------------------------------------------------------------------ #
 
 def test_cancel_returns_to_profile_without_saving(client, groceries):
@@ -623,15 +618,6 @@ def test_cancel_returns_to_profile_without_saving(client, groceries):
     assert href == PROFILE_URL
     assert client.get(href).status_code == 200
     assert expense_row(groceries) == before
-
-
-@pytest.mark.parametrize("logged_in", [False, True])
-def test_delete_stub_unchanged(client, logged_in):
-    if logged_in:
-        log_in(client)
-    resp = client.get("/expenses/1/delete")
-    assert resp.status_code == 200
-    assert resp.get_data(as_text=True) == "Delete expense — coming in Step 9"
 
 
 def test_edit_template_has_no_hex_or_inline_styles():
