@@ -35,6 +35,7 @@ Templates: Jinja2 with url_for() for every internal link — never hardcode URLs
 Route functions: one responsibility only — fetch data, render template, done
 DB queries: always use parameterized queries (? placeholders) — never f-strings in SQL
 Error handling: use abort() for HTTP errors, not bare return "error string"
+Forms: every POST form must include <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"> — check_csrf() in app.py rejects POSTs without it (400). Tests: conftest turns CSRF_ENABLED off; tests/test_csrf.py turns it on
 
 ## Tech constraints
 Flask only — no FastAPI, no Django, no other web frameworks
@@ -55,8 +56,10 @@ python -m venv venv
 source venv/bin/activate          # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 
-# Run dev server (port 5001)
-python app.py
+# Run dev server (port 5001) — debug + reloader only with FLASK_DEBUG=1
+FLASK_DEBUG=1 python app.py       # PowerShell: $env:FLASK_DEBUG="1"; python app.py
+# Without FLASK_DEBUG=1: no debugger, and SECRET_KEY must be set or a random
+# per-process key is used (sessions reset on restart)
 
 # Run all tests
 pytest
@@ -82,7 +85,8 @@ GET /profile	                  Implemented — renders profile.html with live DB
 GET /analytics	                Implemented — renders analytics.html (Coming Soon page); logged-in only, redirects to /login with flash if logged out or the session's user no longer exists. Navbar "Analytics" link shown only when logged in, with .is-active + aria-current on this page
 GET /expenses/add	              Implemented — renders add_expense.html (date pre-filled with today, category unselected); logged-in only, redirects to /login with flash if logged out or the session's user no longer exists
 POST /expenses/add	            Implemented — validate_expense() in app.py, then create_expense() for the session user, flashes "Expense added.", redirects to /profile; invalid input → 400 with inline error and submitted values kept; same auth redirect as GET
-GET /expenses/<id>/edit	        Stub — Step 8
+GET /expenses/<id>/edit	        Implemented — renders edit_expense.html pre-filled from get_expense_by_id(id, session user); logged-in only (same auth redirect as /expenses/add, checked before any lookup); missing or another user's expense → abort(404). Profile's Recent transactions rows each link here
+POST /expenses/<id>/edit	        Implemented — validate_expense(..., allowed_date=stored date) (an unchanged future date is allowed), then update_expense() scoped to the session user, flashes "Expense updated.", redirects to /profile; invalid input → 400 with inline error and submitted values kept; 404 as for GET
 GET /expenses/<id>/delete	      Stub — Step 9
 ## Do not implement a stub route unless the active task explicitly targets that step.
 
@@ -92,6 +96,6 @@ GET /expenses/<id>/delete	      Stub — Step 9
 - Never put DB logic in route functions — it belongs in database/db.py
 - Never install new packages mid-feature without flagging it — keep requirements.txt in sync
 - Never use JS frameworks — the frontend is intentionally vanilla
-- database/db.py only has the helpers added by completed steps (get_db, init_db, seed_db, get_user_by_email, create_user, authenticate_user, get_user_by_id, get_summary_stats, get_recent_transactions, get_category_breakdown, create_expense) — do not assume others exist until the step that implements them
+- database/db.py only has the helpers added by completed steps (get_db, init_db, seed_db, get_user_by_email, create_user, authenticate_user, get_user_by_id, get_summary_stats, get_recent_transactions, get_category_breakdown, create_expense, get_expense_by_id, update_expense) — do not assume others exist until the step that implements them
 - FK enforcement is manual — SQLite foreign keys are off by default; get_db() must run PRAGMA foreign_keys = ON on every connection
 - The app runs on port 5001, not the Flask default 5000 — don't change this

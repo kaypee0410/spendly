@@ -1,8 +1,20 @@
+import hmac
 import os
+import secrets
+import warnings
 from datetime import date, timedelta
 from decimal import Decimal, InvalidOperation
 
-from flask import Flask, flash, redirect, render_template, request, session, url_for
+from flask import (
+    Flask,
+    abort,
+    flash,
+    redirect,
+    render_template,
+    request,
+    session,
+    url_for,
+)
 
 from database.db import (
     authenticate_user,
@@ -10,17 +22,45 @@ from database.db import (
     create_user,
     get_category_breakdown,
     get_db,
+    get_expense_by_id,
     get_recent_transactions,
     get_summary_stats,
     get_user_by_email,
     get_user_by_id,
     init_db,
     seed_db,
+    update_expense,
 )
 
+DEV_SECRET_KEY = "dev-secret-change-me"
+
+
+def debug_enabled(environ):
+    """Debug (and the Werkzeug debugger) only when FLASK_DEBUG=1 is set."""
+    return environ.get("FLASK_DEBUG") == "1"
+
+
+def load_secret_key(environ):
+    """SECRET_KEY from the environment, else a safe fallback.
+
+    The well-known dev key is used only in debug mode, so sessions survive
+    the reloader. Otherwise a random per-process key is used: sessions reset
+    on restart, but nobody can forge a cookie with a key they can guess.
+    """
+    key = environ.get("SECRET_KEY")
+    if key:
+        return key
+    if debug_enabled(environ):
+        return DEV_SECRET_KEY
+    warnings.warn("SECRET_KEY is not set; using a random key for this process.")
+    return secrets.token_hex(32)
+
+
 app = Flask(__name__)
-app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-change-me")
+app.secret_key = load_secret_key(os.environ)
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+# Every POST must carry the session's CSRF token; tests may switch this off.
+app.config["CSRF_ENABLED"] = True
 # Our largest form is a few hundred bytes; refuse anything far bigger (413).
 app.config["MAX_CONTENT_LENGTH"] = 16 * 1024
 
@@ -41,10 +81,12 @@ ANALYTICS_LOGIN_REQUIRED = "Please sign in to view analytics."
 INVALID_DATE_ERROR = "Please enter valid dates."
 DATE_ORDER_ERROR = "Start date must be on or before end date."
 
-# ---- Add expense (Step 7) ---------------------------------------- #
+# ---- Expense forms: add (Step 7), edit (Step 8) ------------------ #
 
 ADD_EXPENSE_LOGIN_REQUIRED = "Please sign in to add an expense."
+EDIT_EXPENSE_LOGIN_REQUIRED = "Please sign in to edit an expense."
 EXPENSE_ADDED = "Expense added."
+EXPENSE_UPDATED = "Expense updated."
 AMOUNT_REQUIRED_ERROR = "Please enter an amount."
 AMOUNT_INVALID_ERROR = "Please enter a valid amount."
 AMOUNT_NOT_POSITIVE_ERROR = "Amount must be greater than zero."
@@ -182,11 +224,13 @@ def _validate_amount(raw):
     return amount, None
 
 
-def validate_expense(form, today):
+def validate_expense(form, today, allowed_date: str | None = None):
     """Return (clean, error) for an expense form; the first error wins.
 
-    clean is {amount, category, date, description} ready for create_expense,
-    or None when error is set.
+    clean is {amount, category, date, description} ready for create_expense
+    or update_expense, or None when error is set. allowed_date (ISO string)
+    is an expense's stored date: keeping it unchanged is accepted even if it
+    is later than today.
     """
     amount, error = _validate_amount(form.get("amount", "").strip())
     if error:
@@ -200,7 +244,7 @@ def validate_expense(form, today):
         expense_date = _parse_iso_date(form.get("date", "").strip())
     except ValueError:  # blank values raise too
         return None, EXPENSE_DATE_INVALID_ERROR
-    if expense_date > today:
+    if expense_date > today and expense_date.isoformat() != allowed_date:
         return None, EXPENSE_DATE_FUTURE_ERROR
 
     description = form.get("description", "").strip()
@@ -234,6 +278,39 @@ def _render_add_expense(values, today, error=None, status=200):
     return html, status
 
 
+def _latest_allowed_date(today, stored_date):
+    """The date input's max: today, or the stored date if that is later.
+
+    Mirrors validate_expense(..., allowed_date=stored_date), which accepts a
+    future date only when it equals the stored one. Both are ISO strings, so
+    string comparison orders them by date.
+    """
+    return max(today.isoformat(), stored_date)
+
+
+def _expense_form_values(expense):
+    """Form values for a stored expense: amount to 2 places, NULL description -> ''."""
+    return {
+        "amount": f"{expense['amount']:.2f}",
+        "category": expense["category"],
+        "date": expense["date"],
+        "description": expense["description"] or "",
+    }
+
+
+def _render_edit_expense(expense_id, values, date_max, error=None, status=200):
+    html = render_template(
+        "edit_expense.html",
+        expense_id=expense_id,
+        categories=EXPENSE_CATEGORIES,
+        values=values,
+        error=error,
+        date_max=date_max,
+        max_description=MAX_DESCRIPTION_LENGTH,
+    )
+    return html, status
+
+
 def _current_user():
     """Return the logged-in user's profile dict, or None if not logged in.
 
@@ -246,6 +323,39 @@ def _current_user():
     if user is None:
         session.clear()
     return user
+
+
+CSRF_FIELD = "csrf_token"
+
+
+def csrf_token():
+    """Return this session's CSRF token, creating it on first use.
+
+    Exposed to templates as csrf_token(); every POST form includes it as a
+    hidden field named CSRF_FIELD.
+    """
+    token = session.get(CSRF_FIELD)
+    if token is None:
+        token = secrets.token_urlsafe(32)
+        session[CSRF_FIELD] = token
+    return token
+
+
+app.jinja_env.globals["csrf_token"] = csrf_token
+
+
+@app.before_request
+def check_csrf():
+    """Reject any POST whose form token doesn't match the session's (400)."""
+    if request.method != "POST" or not app.config["CSRF_ENABLED"]:
+        return
+    expected = session.get(CSRF_FIELD)
+    submitted = request.form.get(CSRF_FIELD, "")
+    # Compare bytes: compare_digest raises TypeError on non-ASCII str input.
+    if not expected or not hmac.compare_digest(
+        expected.encode(), submitted.encode()
+    ):
+        abort(400)
 
 
 def _login_redirect(message):
@@ -380,14 +490,38 @@ def add_expense():
     return redirect(url_for("profile"))
 
 
+@app.route("/expenses/<int:id>/edit", methods=["GET", "POST"])
+def edit_expense(id):
+    if _current_user() is None:
+        return _login_redirect(EDIT_EXPENSE_LOGIN_REQUIRED)
+
+    # user_id comes from the session only; a missing or foreign id is a 404
+    user_id = session["user_id"]
+    expense = get_expense_by_id(id, user_id)
+    if expense is None:
+        abort(404)
+
+    today = date.today()
+    date_max = _latest_allowed_date(today, expense["date"])
+    if request.method == "GET":
+        return _render_edit_expense(id, _expense_form_values(expense), date_max)
+
+    clean, error = validate_expense(
+        request.form, today, allowed_date=expense["date"]
+    )
+    if error is not None:
+        values = {key: request.form.get(key, "") for key in EXPENSE_FIELDS}
+        return _render_edit_expense(id, values, date_max, error=error, status=400)
+
+    if not update_expense(id, user_id, **clean):  # deleted since the lookup
+        abort(404)
+    flash(EXPENSE_UPDATED)
+    return redirect(url_for("profile"))
+
+
 # ------------------------------------------------------------------ #
 # Placeholder routes — students will implement these                  #
 # ------------------------------------------------------------------ #
-
-
-@app.route("/expenses/<int:id>/edit")
-def edit_expense(id):
-    return "Edit expense — coming in Step 8"
 
 
 @app.route("/expenses/<int:id>/delete")
@@ -396,4 +530,4 @@ def delete_expense(id):
 
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5001)
+    app.run(debug=debug_enabled(os.environ), port=5001)

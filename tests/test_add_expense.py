@@ -515,7 +515,6 @@ def test_cancel_link_goes_to_profile_without_saving(client):
 
 
 @pytest.mark.parametrize("url,text", [
-    ("/expenses/1/edit", "Edit expense — coming in Step 8"),
     ("/expenses/1/delete", "Delete expense — coming in Step 9"),
 ])
 def test_later_stubs_unchanged(client, url, text):
