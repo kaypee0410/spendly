@@ -77,6 +77,7 @@ GET /login	                    Implemented — renders login.html; redirects to 
 POST /login	                    Implemented — verifies credentials, sets session (user_id, user_name), redirects to /profile
 GET /logout	                    Implemented — clears session, flashes, redirects to /login
 GET /profile	                  Implemented — renders profile.html with live DB data (user, summary, recent transactions, category breakdown); redirects to /login with flash if logged out or the session's user no longer exists. Optional ?start_date=&end_date= (YYYY-MM-DD, inclusive) filters all three sections; invalid or reversed dates → 400 with inline error and unfiltered data
+GET /analytics	                Implemented — renders analytics.html (Coming Soon page); logged-in only, redirects to /login with flash if logged out or the session's user no longer exists. Navbar "Analytics" link shown only when logged in, with .is-active + aria-current on this page
 GET /expenses/add	              Stub — Step 7
 GET /expenses/<id>/edit	        Stub — Step 8
 GET /expenses/<id>/delete	      Stub — Step 9

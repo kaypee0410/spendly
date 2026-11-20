@@ -1,0 +1,113 @@
+/* Analytics (coming soon) page — CSS variables only, no hex values */
+
+.analytics-section {
+    padding: 4rem 2rem 6rem;
+    display: flex;
+    justify-content: center;
+}
+
+.analytics-card {
+    width: 100%;
+    max-width: 560px;
+    background: var(--paper-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 3rem 2.5rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 1.25rem;
+}
+
+/* ---- Icon ---- */
+
+.analytics-icon-wrap {
+    width: 4rem;
+    height: 4rem;
+    border-radius: var(--radius-md);
+    background: var(--accent-light);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.analytics-icon {
+    width: 2rem;
+    height: 2rem;
+    color: var(--accent);
+}
+
+/* ---- Text ---- */
+
+.analytics-badge {
+    display: inline-block;
+    padding: 0.2rem 0.75rem;
+    border-radius: 999px;
+    background: var(--accent-2-light);
+    color: var(--accent-2);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.analytics-title {
+    font-family: var(--font-display);
+    font-size: 2.25rem;
+    font-weight: 400;
+    line-height: 1.15;
+    color: var(--ink);
+}
+
+.analytics-title em {
+    font-style: italic;
+    color: var(--accent);
+}
+
+.analytics-subtitle {
+    max-width: 420px;
+    color: var(--ink-muted);
+    font-size: 0.95rem;
+    line-height: 1.6;
+}
+
+/* ---- Feature list ---- */
+
+.analytics-features {
+    list-style: none;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    margin: 0.5rem 0;
+    padding: 0;
+}
+
+.analytics-feature {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius-sm);
+    background: var(--paper);
+    color: var(--ink-soft);
+    font-size: 0.9rem;
+    text-align: left;
+}
+
+.analytics-feature-icon {
+    width: 1.125rem;
+    height: 1.125rem;
+    flex: none;
+    color: var(--accent);
+}
+
+/* ---- Responsive ---- */
+
+@media (max-width: 640px) {
+    .analytics-section { padding: 2rem 1rem 3rem; }
+    .analytics-card { padding: 2rem 1.25rem; }
+    .analytics-title { font-size: 1.75rem; }
+}

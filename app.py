@@ -33,6 +33,7 @@ DUPLICATE_EMAIL_ERROR = "An account with that email already exists."
 LOGIN_REQUIRED_ERROR = "All fields are required."
 INVALID_LOGIN_ERROR = "Invalid email or password."
 PROFILE_LOGIN_REQUIRED = "Please sign in to view your profile."
+ANALYTICS_LOGIN_REQUIRED = "Please sign in to view analytics."
 INVALID_DATE_ERROR = "Please enter valid dates."
 DATE_ORDER_ERROR = "Start date must be on or before end date."
 
@@ -218,6 +219,16 @@ def profile():
         filter_active=start_date is not None or end_date is not None,
     )
     return html, 400 if error else 200
+
+
+@app.route("/analytics")
+def analytics():
+    user_id = session.get("user_id")
+    if not user_id or get_user_by_id(user_id) is None:
+        session.clear()  # drop any stale session; clear before flash()
+        flash(ANALYTICS_LOGIN_REQUIRED)
+        return redirect(url_for("login"))
+    return render_template("analytics.html")
 
 
 # ------------------------------------------------------------------ #
