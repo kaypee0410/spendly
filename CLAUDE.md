@@ -15,7 +15,9 @@ spendly/
 │   ├── css/
 │   │   ├── style.css       # Global styles
 │   │   ├── landing.css     # Landing-page-only styles
-│   │   └── profile.css     # Profile-page-only styles
+│   │   ├── profile.css     # Profile-page-only styles
+│   │   ├── analytics.css   # Analytics-page-only styles
+│   │   └── expenses.css    # Expense form styles (add; edit reuses it)
 │   └── js/
 │       └── main.js         # Vanilla JS only
 └── requirements.txt
@@ -78,7 +80,8 @@ POST /login	                    Implemented — verifies credentials, sets sessi
 GET /logout	                    Implemented — clears session, flashes, redirects to /login
 GET /profile	                  Implemented — renders profile.html with live DB data (user, summary, recent transactions, category breakdown); redirects to /login with flash if logged out or the session's user no longer exists. Optional ?start_date=&end_date= (YYYY-MM-DD, inclusive) filters all three sections; invalid or reversed dates → 400 with inline error and unfiltered data
 GET /analytics	                Implemented — renders analytics.html (Coming Soon page); logged-in only, redirects to /login with flash if logged out or the session's user no longer exists. Navbar "Analytics" link shown only when logged in, with .is-active + aria-current on this page
-GET /expenses/add	              Stub — Step 7
+GET /expenses/add	              Implemented — renders add_expense.html (date pre-filled with today, category unselected); logged-in only, redirects to /login with flash if logged out or the session's user no longer exists
+POST /expenses/add	            Implemented — validate_expense() in app.py, then create_expense() for the session user, flashes "Expense added.", redirects to /profile; invalid input → 400 with inline error and submitted values kept; same auth redirect as GET
 GET /expenses/<id>/edit	        Stub — Step 8
 GET /expenses/<id>/delete	      Stub — Step 9
 ## Do not implement a stub route unless the active task explicitly targets that step.
@@ -89,6 +92,6 @@ GET /expenses/<id>/delete	      Stub — Step 9
 - Never put DB logic in route functions — it belongs in database/db.py
 - Never install new packages mid-feature without flagging it — keep requirements.txt in sync
 - Never use JS frameworks — the frontend is intentionally vanilla
-- database/db.py only has the helpers added by completed steps (get_db, init_db, seed_db, get_user_by_email, create_user, authenticate_user, get_user_by_id, get_summary_stats, get_recent_transactions, get_category_breakdown) — do not assume others exist until the step that implements them
+- database/db.py only has the helpers added by completed steps (get_db, init_db, seed_db, get_user_by_email, create_user, authenticate_user, get_user_by_id, get_summary_stats, get_recent_transactions, get_category_breakdown, create_expense) — do not assume others exist until the step that implements them
 - FK enforcement is manual — SQLite foreign keys are off by default; get_db() must run PRAGMA foreign_keys = ON on every connection
 - The app runs on port 5001, not the Flask default 5000 — don't change this
