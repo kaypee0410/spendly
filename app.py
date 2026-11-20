@@ -1,10 +1,12 @@
 import os
 from datetime import date, timedelta
+from decimal import Decimal, InvalidOperation
 
 from flask import Flask, flash, redirect, render_template, request, session, url_for
 
 from database.db import (
     authenticate_user,
+    create_expense,
     create_user,
     get_category_breakdown,
     get_db,
@@ -19,6 +21,8 @@ from database.db import (
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-change-me")
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+# Our largest form is a few hundred bytes; refuse anything far bigger (413).
+app.config["MAX_CONTENT_LENGTH"] = 16 * 1024
 
 with app.app_context():
     init_db()
@@ -36,6 +40,34 @@ PROFILE_LOGIN_REQUIRED = "Please sign in to view your profile."
 ANALYTICS_LOGIN_REQUIRED = "Please sign in to view analytics."
 INVALID_DATE_ERROR = "Please enter valid dates."
 DATE_ORDER_ERROR = "Start date must be on or before end date."
+
+# ---- Add expense (Step 7) ---------------------------------------- #
+
+ADD_EXPENSE_LOGIN_REQUIRED = "Please sign in to add an expense."
+EXPENSE_ADDED = "Expense added."
+AMOUNT_REQUIRED_ERROR = "Please enter an amount."
+AMOUNT_INVALID_ERROR = "Please enter a valid amount."
+AMOUNT_NOT_POSITIVE_ERROR = "Amount must be greater than zero."
+AMOUNT_PRECISION_ERROR = "Amount can have at most 2 decimal places."
+AMOUNT_TOO_LARGE_ERROR = "Amount is too large."
+CATEGORY_INVALID_ERROR = "Please choose a category."
+EXPENSE_DATE_INVALID_ERROR = "Please enter a valid date."
+EXPENSE_DATE_FUTURE_ERROR = "Date cannot be in the future."
+DESCRIPTION_TOO_LONG_ERROR = "Description must be 200 characters or fewer."
+
+EXPENSE_CATEGORIES = [
+    "Food",
+    "Transport",
+    "Bills",
+    "Health",
+    "Entertainment",
+    "Shopping",
+    "Other",
+]
+EXPENSE_FIELDS = ("amount", "category", "date", "description")
+MAX_EXPENSE_AMOUNT = Decimal("10000000")
+MAX_AMOUNT_LENGTH = 20  # longer strings are rejected before Decimal parsing
+MAX_DESCRIPTION_LENGTH = 200
 
 
 @app.template_filter("inr")
@@ -117,6 +149,111 @@ def _render_login_error(error, email, status):
     return render_template("login.html", error=error, email=email), status
 
 
+def _decimal_places(value):
+    """Exact count of significant decimal places: '12.50' -> 1, '12.340' -> 2.
+
+    Works on the digit tuple, so no context precision or rounding is involved.
+    """
+    _, digits, exponent = value.as_tuple()
+    while exponent < 0 and digits and digits[-1] == 0:  # ignore trailing zeros
+        digits = digits[:-1]
+        exponent += 1
+    return max(0, -exponent)
+
+
+def _validate_amount(raw):
+    """Return (Decimal, None) or (None, error) for a submitted amount string."""
+    if not raw:
+        return None, AMOUNT_REQUIRED_ERROR
+    if len(raw) > MAX_AMOUNT_LENGTH:
+        return None, AMOUNT_INVALID_ERROR
+    try:
+        amount = Decimal(raw)
+    except InvalidOperation:
+        return None, AMOUNT_INVALID_ERROR
+    if not amount.is_finite():  # nan, snan, inf — check before comparing
+        return None, AMOUNT_INVALID_ERROR
+    if amount <= 0:
+        return None, AMOUNT_NOT_POSITIVE_ERROR
+    if _decimal_places(amount) > 2:
+        return None, AMOUNT_PRECISION_ERROR
+    if amount > MAX_EXPENSE_AMOUNT:
+        return None, AMOUNT_TOO_LARGE_ERROR
+    return amount, None
+
+
+def validate_expense(form, today):
+    """Return (clean, error) for an expense form; the first error wins.
+
+    clean is {amount, category, date, description} ready for create_expense,
+    or None when error is set.
+    """
+    amount, error = _validate_amount(form.get("amount", "").strip())
+    if error:
+        return None, error
+
+    category = form.get("category", "")
+    if category not in EXPENSE_CATEGORIES:
+        return None, CATEGORY_INVALID_ERROR
+
+    try:
+        expense_date = _parse_iso_date(form.get("date", "").strip())
+    except ValueError:  # blank values raise too
+        return None, EXPENSE_DATE_INVALID_ERROR
+    if expense_date > today:
+        return None, EXPENSE_DATE_FUTURE_ERROR
+
+    description = form.get("description", "").strip()
+    if len(description) > MAX_DESCRIPTION_LENGTH:
+        return None, DESCRIPTION_TOO_LONG_ERROR
+
+    return {
+        "amount": float(amount),
+        "category": category,
+        "date": expense_date.isoformat(),
+        "description": description or None,
+    }, None
+
+
+def _blank_expense_values(today):
+    """Initial form values for a new expense: everything empty, date = today."""
+    values = dict.fromkeys(EXPENSE_FIELDS, "")
+    values["date"] = today.isoformat()
+    return values
+
+
+def _render_add_expense(values, today, error=None, status=200):
+    html = render_template(
+        "add_expense.html",
+        categories=EXPENSE_CATEGORIES,
+        values=values,
+        error=error,
+        today=today.isoformat(),
+        max_description=MAX_DESCRIPTION_LENGTH,
+    )
+    return html, status
+
+
+def _current_user():
+    """Return the logged-in user's profile dict, or None if not logged in.
+
+    A session whose user row no longer exists is cleared.
+    """
+    user_id = session.get("user_id")
+    if not user_id:
+        return None
+    user = get_user_by_id(user_id)
+    if user is None:
+        session.clear()
+    return user
+
+
+def _login_redirect(message):
+    """Flash message and send the visitor to the login page."""
+    flash(message)  # after any session.clear(), or the flash is wiped too
+    return redirect(url_for("login"))
+
+
 # ------------------------------------------------------------------ #
 # Routes                                                              #
 # ------------------------------------------------------------------ #
@@ -191,16 +328,10 @@ def privacy():
 
 @app.route("/profile")
 def profile():
-    user_id = session.get("user_id")
-    if not user_id:
-        flash(PROFILE_LOGIN_REQUIRED)
-        return redirect(url_for("login"))
-
-    user = get_user_by_id(user_id)
-    if user is None:  # stale session — the user row no longer exists
-        session.clear()  # clear before flash(), or the flash is wiped too
-        flash(PROFILE_LOGIN_REQUIRED)
-        return redirect(url_for("login"))
+    user = _current_user()
+    if user is None:
+        return _login_redirect(PROFILE_LOGIN_REQUIRED)
+    user_id = session["user_id"]
 
     # On error, parse_date_filter returns None dates -> unfiltered fallback.
     start_date, end_date, error = parse_date_filter(request.args)
@@ -223,21 +354,35 @@ def profile():
 
 @app.route("/analytics")
 def analytics():
-    user_id = session.get("user_id")
-    if not user_id or get_user_by_id(user_id) is None:
-        session.clear()  # drop any stale session; clear before flash()
-        flash(ANALYTICS_LOGIN_REQUIRED)
-        return redirect(url_for("login"))
+    if _current_user() is None:
+        return _login_redirect(ANALYTICS_LOGIN_REQUIRED)
     return render_template("analytics.html")
+
+
+@app.route("/expenses/add", methods=["GET", "POST"])
+def add_expense():
+    if _current_user() is None:
+        return _login_redirect(ADD_EXPENSE_LOGIN_REQUIRED)
+
+    today = date.today()
+    if request.method == "GET":
+        return _render_add_expense(_blank_expense_values(today), today)
+
+    clean, error = validate_expense(request.form, today)
+    if error is not None:
+        # Echo back only the known fields; any submitted user_id is ignored.
+        values = {key: request.form.get(key, "") for key in EXPENSE_FIELDS}
+        return _render_add_expense(values, today, error=error, status=400)
+
+    # user_id comes from the session only, never from the form
+    create_expense(session["user_id"], **clean)
+    flash(EXPENSE_ADDED)
+    return redirect(url_for("profile"))
 
 
 # ------------------------------------------------------------------ #
 # Placeholder routes — students will implement these                  #
 # ------------------------------------------------------------------ #
-
-@app.route("/expenses/add")
-def add_expense():
-    return "Add expense — coming in Step 7"
 
 
 @app.route("/expenses/<int:id>/edit")

@@ -253,7 +253,6 @@ def test_profile_requires_login(client):
 @pytest.mark.parametrize(
     "path, expected",
     [
-        ("/expenses/add", "Add expense — coming in Step 7"),
         ("/expenses/1/edit", "Edit expense — coming in Step 8"),
         ("/expenses/1/delete", "Delete expense — coming in Step 9"),
     ],

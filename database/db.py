@@ -232,3 +232,26 @@ def get_category_breakdown(user_id, start_date=None, end_date=None):
     # The largest category absorbs any rounding remainder so pcts sum to 100.
     categories[0]["pct"] += 100 - sum(c["pct"] for c in categories)
     return categories
+
+
+# ------------------------------------------------------------------ #
+# Expense writes                                                      #
+# ------------------------------------------------------------------ #
+
+def create_expense(user_id, amount, category, date, description=None):
+    """Insert one expense for user_id and return its new id.
+
+    Does no validation; callers validate first. Raises sqlite3.IntegrityError
+    if user_id does not exist (FK enforced by get_db()).
+    """
+    conn = get_db()
+    try:
+        cur = conn.execute(
+            "INSERT INTO expenses (user_id, amount, category, date, description) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (user_id, amount, category, date, description),
+        )
+        conn.commit()
+        return cur.lastrowid
+    finally:
+        conn.close()

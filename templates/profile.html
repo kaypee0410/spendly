@@ -10,6 +10,12 @@
 <section class="profile-section">
     <div class="profile-inner">
 
+        {% with messages = get_flashed_messages() %}
+        {% for message in messages %}
+        <div class="auth-success" role="status">{{ message }}</div>
+        {% endfor %}
+        {% endwith %}
+
         <article class="profile-card profile-user">
             <div class="profile-avatar" aria-hidden="true">{{ (user.name.split()|map('first')|join|upper)[:2] }}</div>
             <div class="profile-user-info">
@@ -23,6 +29,7 @@
                     <span>Member since {{ user.member_since }}</span>
                 </p>
             </div>
+            <a href="{{ url_for('add_expense') }}" class="btn-primary profile-add-btn">Add expense</a>
         </article>
 
         <form class="profile-card profile-filter" method="get" action="{{ url_for('profile') }}" aria-label="Filter by date">
